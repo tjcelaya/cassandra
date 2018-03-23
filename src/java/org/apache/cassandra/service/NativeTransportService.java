@@ -31,6 +31,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.kqueue.KQueue;
+import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.util.concurrent.EventExecutor;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.metrics.AuthMetrics;
@@ -64,10 +66,17 @@ public class NativeTransportService
         // prepare netty resources
         eventExecutorGroup = new RequestThreadPoolExecutor();
 
+
+    	final String osName = System.getProperty("os.name").toLowerCase(); 
         if (useEpoll())
         {
             workerGroup = new EpollEventLoopGroup();
             logger.info("Netty using native Epoll event loop");
+        }
+        else if (useKQueue())
+        {
+            workerGroup = new KQueueEventLoopGroup();
+            logger.info("Netty using native KQueue event loop");
         }
         else
         {
@@ -160,6 +169,20 @@ public class NativeTransportService
     {
         final boolean enableEpoll = Boolean.parseBoolean(System.getProperty("cassandra.native.epoll.enabled", "true"));
         return enableEpoll && Epoll.isAvailable();
+    }
+
+
+    /**
+     * @return intend to use kqueue based event looping
+     */
+    public static boolean useKQueue()
+    {
+        final boolean enableKQueue = Boolean.parseBoolean(System.getProperty("cassandra.native.kqueue.enabled", "true"));
+
+        if (enableKQueue && !KQueue.isAvailable() && NativeLibrary.osType == NativeLibrary.OSType.FREEBSD)
+            logger.warn("kqueue not available {}", KQueue.unavailabilityCause());
+
+        return enableKQueue && KQueue.isAvailable();
     }
 
     /**

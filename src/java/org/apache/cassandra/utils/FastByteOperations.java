@@ -29,6 +29,10 @@ import com.google.common.primitives.*;
 import net.nicoulaj.compilecommand.annotations.Inline;
 import sun.misc.Unsafe;
 
+import org.apache.cassandra.utils.NativeLibrary;
+
+import static org.apache.cassandra.utils.NativeLibrary.OSType.FREEBSD;
+
 /**
  * Utility code to do optimized byte-array comparison.
  * This is borrowed and slightly modified from Guava's {@link UnsignedBytes}
@@ -102,7 +106,7 @@ public class FastByteOperations
          */
         static ByteOperations getBest()
         {
-            if (!Architecture.IS_UNALIGNED)
+            if (!Architecture.IS_UNALIGNED || NativeLibrary.osType == FREEBSD)
                 return new PureJavaOperations();
             try
             {

@@ -35,6 +35,7 @@ import static org.apache.cassandra.utils.NativeLibrary.OSType.LINUX;
 import static org.apache.cassandra.utils.NativeLibrary.OSType.MAC;
 import static org.apache.cassandra.utils.NativeLibrary.OSType.WINDOWS;
 import static org.apache.cassandra.utils.NativeLibrary.OSType.AIX;
+import static org.apache.cassandra.utils.NativeLibrary.OSType.FREEBSD;
 
 public final class NativeLibrary
 {
@@ -46,6 +47,7 @@ public final class NativeLibrary
         MAC,
         WINDOWS,
         AIX,
+        FREEBSD,
         OTHER;
     }
 
@@ -87,6 +89,7 @@ public final class NativeLibrary
         {
             case MAC: wrappedLibrary = new NativeLibraryDarwin(); break;
             case WINDOWS: wrappedLibrary = new NativeLibraryWindows(); break;
+	    case FREEBSD: // TODO: do we need a NativeLibraryFreeBSD ?
             case LINUX:
             case AIX:
             case OTHER:
@@ -95,7 +98,7 @@ public final class NativeLibrary
 
         if (System.getProperty("os.arch").toLowerCase().contains("ppc"))
         {
-            if (osType == LINUX)
+            if (osType == LINUX || osType == FREEBSD)
             {
                MCL_CURRENT = 0x2000;
                MCL_FUTURE = 0x4000;
@@ -132,6 +135,10 @@ public final class NativeLibrary
             return WINDOWS;
         else if (osName.contains("aix"))
             return AIX;
+        else if (osName.contains("freebsd"))
+            return FREEBSD;
+
+        logger.warn("the current operating system, {}, is unsupported by cassandra", osName);
         else
             // fall back to the Linux impl for all unknown OS types until otherwise implicitly supported as needed
             return LINUX;
@@ -182,7 +189,7 @@ public final class NativeLibrary
             if (!(e instanceof LastErrorException))
                 throw e;
 
-            if (errno(e) == ENOMEM && osType == LINUX)
+            if (errno(e) == ENOMEM && (osType == LINUX || osType == FREEBSD))
             {
                 logger.warn("Unable to lock JVM memory (ENOMEM)."
                         + " This can result in part of the JVM being swapped out, especially with mmapped I/O enabled."
@@ -233,7 +240,7 @@ public final class NativeLibrary
 
         try
         {
-            if (osType == LINUX)
+            if (osType == LINUX || osType == FREEBSD)
             {
                 int result = wrappedLibrary.callPosixFadvise(fd, offset, len, POSIX_FADV_DONTNEED);
                 if (result != 0)
